@@ -85,13 +85,13 @@ def add_tank():
     except ValidationError as ve:
         return ve.messages, 400
 
-@app.route("/data/<ObjectID:id>", methods=["PATCH"])
+@app.route("/data", methods=["PATCH"])
 def update_tank(id):
     mongo.db.tanks.update_one(({"_id": id}), {"$set": request.json})
     tank = mongo.db.tanks.find_one(id)
     return loads(dumps(tank))
 
-@app.route("/data/<ObjectId:id>", methods=["DELETE"])
+@app.route("/data", methods=["DELETE"])
 def delete_tank(id):
     result = mongo.db.fruits.delete_one({"_id": id})
     if result.deleted_count == 1:
