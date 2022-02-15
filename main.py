@@ -1,30 +1,28 @@
-from flask import Flask, request, jsonify, json
-from flask_pymongo import PyMongo 
 from marshmallow import Schema, fields, ValidationError
+from flask import Flask, request, jsonify
+from flask_pymongo import PyMongo
 from bson.json_util import dumps
-from json import loads
 from datetime import datetime
-
-
+from flask_cors import CORS
+from json import loads
+import pandas as pd
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = "mongodb+srv://eramiskell:fallenhippo@cluster0.tjzit.mongodb.net/Lab3?retryWrites=true&w=majority"
+CORS(app)
+
+app.config["MONGO_URI"] = "mongodb+srv://<Osiris>:<FPid9itnygVzFvk1>@cluster0.tjzit.mongodb.net/lab3?retryWrites=true&w=majority"
 mongo = PyMongo(app)
 
-
-
 profile = {
-    "data":{"last_updated": "2/3/2021, 8:48:51 PM", 
+    "success": True,
+    "data":{"last_updated": "2/3/2021, 8:48:51 PM",
             "username": "Jimmy_Woo",
             "role": "Engineer",
             "color": "green"
             }
 }
 
-tank_info = []
-tank_id = 0
-
-class TankSchema(Schema):
+class TanksSchema(Schema):
     location = fields.String(required=True)
     latitude  = fields.String(required=True)
     longitude = fields.String(required=True)
@@ -32,76 +30,68 @@ class TankSchema(Schema):
 
 @app.route("/")
 def home():
-    return "Hello There"
+    return "ECSE3038 Lab 3"
 
-@app.route("/profile", methods=["GET"])
-def get_profile():
-    return profile
+@app.route("/profile", methods=["GET", "POST", "PATCH"])
+def getting_profile():
+    if request.method == "GET":
+        return jsonify(Profile)
 
+    elif request.method == "POST":
+        now = datetime.now()
+        datetimee = now.strftime("%d/%m/%Y %H:%M:%S")
 
-@app.route("/profile", methods=["POST"])
-def post_profile():
-    profile["username"] = request.json["username"]
-    profile["role"] = request.json["role"]
-    profile["color"] = request.json["color"]
-    profile["last_updated"] = datetime.now()
+        Profile["data"]["last_updated"] = (datetimee)
+        Profile["data"]["username"] = (request.json["username"])
+        Profile["data"]["role"] = (request.json["role"])
+        Profile["data"]["color"] = (request.json["color"])
 
-    return{
-        "success": True,
-        "data": profile
-    }
+        return jsonify(Profile)
 
-@app.route("/profile", methods=["PATCH"])
-def update_profile():
-    if "username" in request.json:
-        profile["username"] = request.json["username"]
-  
-    if "role" in request.json:
-        profile["role"] = request.json["role"]
+    elif request.method == "PATCH":
+        now = datetime.now()
+        datetimee = now.strftime("%d/%m/%Y %H:%M:%S")
+    
+        data = Profile["data"]
 
-    if "color" in request.json:
-        profile["color"] = request.json["color"]
-  
-    profile["last_updated"] = datetime.now()
+        r = request.json
+        r["last_updated"] = datetimee
+        attributes = r.keys()
+        for attribute in attributes:
+            data[attribute] = r[attribute]
 
-    return {
-        "success": True,
-        "data": profile
-    }
+        return jsonify(Profile)      
 
-#GET /data
-@app.route("/data", methods=["GET"])
-def get_tank():
-    tanks = mongo.db.tanks.find()
-    return jsonify(loads(dumps(tanks)))
+@app.route("/data", methods=["GET", "POST"])
+def tank_data():
+    if request.method == "GET":
+        Tanks = mongo.db.Tanks.find()
+        return jsonify(loads(dumps(Tanks)))
 
-@app.route("/data", methods=["POST"])
-def add_tank():
-    try:
-        newTank = TankSchema().load(request.json)
-        tank_id = mongo.db.tanks.insert_one(newTank).inserted_id
-        tank = mongo.db.tanks.find_one(tank_id)
-        return loads(dumps(tank))
-    except ValidationError as ve:
-        return ve.messages, 400
+    elif request.method == "POST":
+        try:
+            Tank = TanksSchema().load(request.json)
+            mongo.db.Tanks.insert_one(Tank)
+            return loads(dumps(Tank))
+        except ValidationError as ve:
+            return ve.messages, 400 
 
-@app.route("/data", methods=["PATCH"])
-def update_tank(id):
-    mongo.db.tanks.update_one(({"_id": id}), {"$set": request.json})
-    tank = mongo.db.tanks.find_one(id)
-    return loads(dumps(tank))
+@app.route('/data/<ObjectId:id>', methods=["PATCH", "DELETE"])
+def tank_id_methods(id):
+    if request.method == "PATCH":
 
-@app.route("/data", methods=["DELETE"])
-def delete_tank(id):
-    result = mongo.db.fruits.delete_one({"_id": id})
-    if result.deleted_count == 1:
-        return{
-            "success": True
-        }
-    else:
-        return{
-            "success": False
-        }, 400
+        mongo.db.Tanks.update_one({"_id": id}, {"$set": request.json})
+        Tank = mongo.db.tanks.find_one(id)
+        return jsonify(Tank)
+        return loads(dumps(Tank))
+
+    elif request.method == "DELETE":
+        result = mongo.db.Tanks.delete_one({"_id": id})
+
+        if result.deleted_count == 1:
+            return {"success": True}
+        else:
+            return {"success": False}, 400
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run( debug=True,port =3000, host = "0.0.0.0")
